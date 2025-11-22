@@ -181,7 +181,7 @@ class BytePairEncoding:
         """Decodes a list of token IDs back to bytes."""
         return b"".join(self.all_tokens[t] for t in tokens)
 
-    def encode(self, text: bytes) -> List[int]:
+def encode(self, text: bytes) -> List[int]:
         """
         Encodes text using the 'Novel Algorithm' (Dynamic Programming).
 
@@ -192,13 +192,16 @@ class BytePairEncoding:
         if not text: return []
         n = len(text)
 
-        # last_token[i] stores the token_id that *correctly* ends at position i
-        last_token: Dict[int, int] = {}
-        valid_indices = {0}
+        # last_token[i] stores the token_id that *correctly* ends at position i.
+        # We initialize index 0 with None because it is the valid start position,
+        # effectively using the dict keys as the set of reachable positions.
+        last_token: Dict[int, Optional[int]] = {0: None}
 
         # 1. Forward Pass: Find valid tokens ending at every position
         for i in range(n):
-            if i not in valid_indices: continue
+            # If i is not in last_token, it means no valid sequence of tokens
+            # reaches this position, so we cannot start a new token here.
+            if i not in last_token: continue
 
             node = self.root
             for j in range(i, n):
@@ -211,24 +214,28 @@ class BytePairEncoding:
                     new_token = node.token_id
 
                     # A token is valid here if:
-                    # a) It's at the very start of the string
+                    # a) It's at the very start of the string (i==0)
                     # b) It merges validly with the token preceding it
                     is_valid = False
                     if i == 0:
                         is_valid = True
                     else:
+                        # We look up the token that ended at 'i' to check compatibility.
+                        # Since i > 0, last_token[i] is guaranteed to be an int (not None).
                         prev_token = last_token[i]
                         if self._is_valid_merge(prev_token, new_token):
                             is_valid = True
 
                     if is_valid:
+                        # We found a valid path to 'next_pos'.
+                        # In this DP approach, we simply overwrite; Corollary IIa
+                        # from the Rust implementation guarantees uniqueness.
                         last_token[next_pos] = new_token
-                        valid_indices.add(next_pos)
 
         # 2. Backward Pass: Reconstruct the sequence
         if n not in last_token:
             # If we couldn't reach the end, the byte sequence is likely invalid
-            # for this tokenizer (e.g., partial UTF-8 bytes).
+            # for this tokenizer (e.g., partial UTF-8 bytes or invalid Unicode).
             return []
 
         encoded = []
@@ -236,6 +243,7 @@ class BytePairEncoding:
         while curr > 0:
             t = last_token[curr]
             encoded.append(t)
+            # To backtrack, we subtract the length of the current token
             curr -= len(self.all_tokens[t])
 
         return encoded[::-1]
