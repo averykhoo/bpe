@@ -181,7 +181,7 @@ class BytePairEncoding:
         """Decodes a list of token IDs back to bytes."""
         return b"".join(self.all_tokens[t] for t in tokens)
 
-def encode(self, text: bytes) -> List[int]:
+    def encode(self, text: bytes) -> List[int]:
         """
         Encodes text using the 'Novel Algorithm' (Dynamic Programming).
 
