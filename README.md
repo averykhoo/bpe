@@ -1,14 +1,14 @@
-[//]: # (Here is a `README.md` for the Python implementation we just built. 
-It gives full credit to the original Rust architecture while explaining how to use this standalone Python version.)
+[//]: # (
+Here is a `README.md` for the Python implementation we just built. 
+It gives full credit to the original Rust architecture while explaining how to use this standalone Python version.
+)
 
 # Pure Python OpenAI BPE Tokenizer
 
-A 100% pure Python port of the high-performance Byte Pair Encoding (BPE) algorithm used by OpenAI (GPT-4, o1, etc.).
-
-This project is a faithful implementation of the "Novel Algorithm" described in the [**`rust-gems/bpe`
-**](https://github.com/github/rust-gems) crate.
-It replicates the logic for ensuring correct, deterministic tokenization
-without requiring Rust, C++, or the official `tiktoken` binary blobs.
+A pure Python port of the high-performance Byte Pair Encoding (BPE) algorithm detailed in
+[this blog post](https://github.blog/ai-and-ml/llms/so-many-tokens-so-little-time-introducing-a-faster-more-flexible-byte-pair-tokenizer/).
+The original source code can be found [here](https://github.com/github/rust-gems/tree/main/crates/bpe) (bpe algorithm) 
+and [here](https://github.com/github/rust-gems/tree/main/crates/bpe-openai) (openai tokenizer)
 
 ## 🔗 Original Source
 

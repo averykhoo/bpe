@@ -10,7 +10,7 @@ from typing import List
 import regex as re
 import unicodedata
 
-from bpe import BytePairEncoding
+from byte_pair_encoding import BytePairEncoding
 
 # Regex patterns matching OpenAI's Rust implementation
 # CL100K (GPT-4, gpt-3.5-turbo)
