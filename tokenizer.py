@@ -1,74 +1,145 @@
 """
-This file corresponds to crates/bpe-openai/src/lib.rs and handles the regex pre-tokenization and normalization.
+OpenAI Tokenizer Wrapper
 
-This file handles the regex pre-tokenization and normalization.
-It wraps the core BytePairEncoding logic to provide a high-level API similar to tiktoken.
+This file corresponds to crates/bpe-openai/src/lib.rs
+
+This module handles the pre-tokenization logic (Regex splitting) and normalization (NFC)
+required to replicate OpenAI's GPT-4 and GPT-4o tokenizers. It wraps the core
+BytePairEncoding logic to provide a high-level API similar to `tiktoken`.
 """
 
-from typing import List
-
-import regex as re
 import unicodedata
+from pathlib import Path
+from typing import List, Union, Pattern
+
+import regex
 
 from byte_pair_encoding import BytePairEncoding
 
-# Regex patterns matching OpenAI's Rust implementation
+# --- Pre-compiled Regex Patterns ---
+
 # CL100K (GPT-4, gpt-3.5-turbo)
-PAT_CL100K = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"
+# Logic: Contractions -> Words -> Numbers -> Punctuation -> Whitespace
+# Note: This uses standard regex logic without recursion/definitions.
+CL100K_PATTERN = regex.compile(r"""
+    (?i:'s|'t|'re|'ve|'m|'ll|'d)|   # Contractions (case-insensitive)
+    [^\r\n\p{L}\p{N}]?\p{L}+|       # Words (optional prefix non-letter/num)
+    \p{N}{1,3}|                     # Numbers (1 to 3 digits)
+    \ ?[^\s\p{L}\p{N}]+[\r\n]*|     # Punctuation / symbols
+    \s*[\r\n]+|                     # Newlines (and surrounding whitespace)
+    \s+(?!\S)|                      # Trailing whitespace
+    \s+                             # Other whitespace
+""", regex.VERBOSE)
 
 # O200K (GPT-4o)
-PAT_O200K = r"""[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?|[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n/]*|\s*[\r\n]+|\s+(?!\S)|\s+"""
+# This uses the PCRE `(?(DEFINE)...)` syntax to define reusable character classes
+# for Uppercase vs Mixed/Lowercase words, reducing code duplication.
+O200K_PATTERN = regex.compile(r"""
+    (?(DEFINE)
+        # Character Classes (derived from Rust implementation)
+        # \p{Lu}: Uppercase, \p{Lt}: Titlecase, \p{Lm}: Modifier, \p{Lo}: Other, \p{M}: Mark
+        (?<upper> [\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}] )
+        (?<lower> [\p{Ll}\p{Lm}\p{Lo}\p{M}] )
+        
+        # Shared Affixes
+        (?<prefix> [^\r\n\p{L}\p{N}]? )
+        (?<suffix> (?i:'s|'t|'re|'ve|'m|'ll|'d)? )
+    )
+    # --- Matching Logic ---
+    (?&prefix)(?&upper)*(?&lower)+(?&suffix)|  # Mixed/Lowercase words (requires 1+ lower)
+    (?&prefix)(?&upper)+(?&lower)*(?&suffix)|  # Uppercase words (requires 1+ upper)
+    \p{N}{1,3}|                                # Numbers
+    \ ?[^\s\p{L}\p{N}]+[\r\n/]*|               # Punctuation (Specifically consumes slashes)
+    \s*[\r\n]+|                                # Newlines
+    \s+(?!\S)|                                 # Trailing whitespace
+    \s+                                        # Other whitespace
+""", regex.VERBOSE)
 
 
 class Tokenizer:
-    def __init__(self, bpe: BytePairEncoding, pattern: str, nfc_normalize: bool = False):
+    """
+    A high-level tokenizer that splits text via Regex before applying BPE.
+    """
+
+    def __init__(self, bpe: BytePairEncoding, pattern: Pattern, nfc_normalize: bool = False):
+        """
+        Initialize the tokenizer.
+
+        Args:
+            bpe: The loaded BytePairEncoding instance (dictionary logic).
+            pattern: The compiled regex pattern used to split text into chunks.
+            nfc_normalize: If True, normalize text to Unicode NFC before processing.
+                           (Default: False, to match strict tiktoken behavior).
+        """
         self.bpe = bpe
         self.nfc = nfc_normalize
-        self.pattern = re.compile(pattern)
+        self.pattern = pattern
+
+    def __call__(self, text: str) -> List[int]:
+        """
+        Allows usage as a callable: `tokens = tokenizer("my text")`.
+        """
+        return self.encode(text)
 
     def encode(self, text: str) -> List[int]:
         """
         Encodes a string into a list of token IDs.
 
-        This corresponds to `encode_ordinary` in tiktoken; it treats special tokens
-        (like <|endoftext|>) as regular text, not as control tokens.
+        This treats special tokens (like <|endoftext|>) as regular text.
+        To handle special tokens, they must be split out before calling this method.
+
+        Args:
+            text: The input string.
+
+        Returns:
+            A list of integers representing the tokens.
         """
         if self.nfc:
             text = unicodedata.normalize("NFC", text)
-
+            
         tokens = []
-        # OpenAI uses a regex to split text into chunks (words/punctuation)
-        # BEFORE applying BPE to each chunk.
+        # OpenAI tokenization logic:
+        # 1. Split text into semantic chunks using the specific regex.
+        # 2. Apply BPE to each chunk independently.
+        # 3. This prevents merging across boundaries (e.g., across newlines or punctuation).
         for chunk in self.pattern.findall(text):
+            # BPE operates on bytes, not Unicode characters
             chunk_bytes = chunk.encode('utf-8')
             tokens.extend(self.bpe.encode(chunk_bytes))
-
+            
         return tokens
 
     def count_tokens(self, text: str) -> int:
         """
         Efficiently counts the number of tokens in a string.
 
-        This is faster and more memory efficient than calling len(encode(text))
-        because it does not allocate the full list of integers.
+        This is more memory efficient than `len(encode(text))` because it avoids
+        allocating the full list of integers, only summing the lengths.
+
+        Args:
+            text: The input string.
+
+        Returns:
+            The total number of tokens.
         """
         if self.nfc:
             text = unicodedata.normalize("NFC", text)
-
-        count = 0
-        for chunk in self.pattern.findall(text):
-            chunk_bytes = chunk.encode('utf-8')
-            # BPE.encode returns a list; calculating length is faster than extending a list
-            # Optimization Note: Ideally BPE.encode would have a 'count_only' mode,
-            # but list allocation in Python is relatively cheap for small regex chunks.
-            count += len(self.bpe.encode(chunk_bytes))
-
-        return count
+            
+        return sum(
+            len(self.bpe.encode(chunk.encode('utf-8'))) 
+            for chunk in self.pattern.findall(text)
+        )
 
     def decode(self, tokens: List[int]) -> str:
         """
         Decodes a list of token IDs back into a string.
-        Handles invalid UTF-8 sequences gracefully using 'replace'.
+
+        Args:
+            tokens: List of token integers.
+
+        Returns:
+            The decoded string. Invalid UTF-8 sequences are replaced with the
+            Unicode replacement character.
         """
         byte_data = self.bpe.decode_tokens(tokens)
         return byte_data.decode('utf-8', errors='replace')
@@ -76,17 +147,35 @@ class Tokenizer:
 
 # --- Factories ---
 
-def get_cl100k_base(path: str) -> Tokenizer:
+def get_cl100k_base(path: Union[str, Path]) -> Tokenizer:
     """
-    Returns a tokenizer for the 'cl100k_base' encoding (GPT-4, GPT-3.5-Turbo).
-    Requires the path to 'cl100k_base.tiktoken'.
+    Factory for the 'cl100k_base' tokenizer (GPT-4, GPT-3.5-Turbo, text-embedding-3).
+
+    Args:
+        path: Path to the `cl100k_base.tiktoken` file.
+
+    Returns:
+        A configured Tokenizer instance.
     """
-    return Tokenizer(BytePairEncoding.from_tiktoken_file(path), PAT_CL100K, nfc_normalize=False)
+    return Tokenizer(
+        BytePairEncoding.from_tiktoken_file(path), 
+        CL100K_PATTERN, 
+        nfc_normalize=False
+    )
 
 
-def get_o200k_base(path: str) -> Tokenizer:
+def get_o200k_base(path: Union[str, Path]) -> Tokenizer:
     """
-    Returns a tokenizer for the 'o200k_base' encoding (GPT-4o).
-    Requires the path to 'o200k_base.tiktoken'.
+    Factory for the 'o200k_base' tokenizer (GPT-4o).
+
+    Args:
+        path: Path to the `o200k_base.tiktoken` file.
+
+    Returns:
+        A configured Tokenizer instance.
     """
-    return Tokenizer(BytePairEncoding.from_tiktoken_file(path), PAT_O200K, nfc_normalize=False)
+    return Tokenizer(
+        BytePairEncoding.from_tiktoken_file(path), 
+        O200K_PATTERN, 
+        nfc_normalize=False
+    )
