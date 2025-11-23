@@ -164,6 +164,3 @@ cython_debug/
 
 cl100k_base.tiktoken
 o200k_base.tiktoken
-
-cl100k_base.tiktoken.*.ac.cache
-o200k_base.tiktoken.*.ac.cache

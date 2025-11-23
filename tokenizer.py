@@ -8,13 +8,16 @@ required to replicate OpenAI's GPT-4 and GPT-4o tokenizers. It wraps the core
 BytePairEncoding logic to provide a high-level API similar to `tiktoken`.
 """
 
-import unicodedata
+from itertools import chain
 from pathlib import Path
-from typing import List, Union, Pattern
+from typing import List
+from typing import Pattern
+from typing import Union
 
 import regex
+import unicodedata
 
-from byte_pair_encoding_caching import BytePairEncoding
+from byte_pair_encoding import BytePairEncoding
 
 # --- Pre-compiled Regex Patterns ---
 
@@ -31,28 +34,36 @@ CL100K_PATTERN = regex.compile(r"""
     \s+                             # Other whitespace
 """, regex.VERBOSE)
 
-# O200K (GPT-4o)
-# This uses the PCRE `(?(DEFINE)...)` syntax to define reusable character classes
-# for Uppercase vs Mixed/Lowercase words, reducing code duplication.
+# OPTIMIZED O200K PATTERN (Flattened)
+# We expanded the (?&define) groups directly into the main pattern.
+# This removes the overhead of PCRE subroutine calls during matching.
 O200K_PATTERN = regex.compile(r"""
-    (?(DEFINE)
-        # Character Classes (derived from Rust implementation)
-        # \p{Lu}: Uppercase, \p{Lt}: Titlecase, \p{Lm}: Modifier, \p{Lo}: Other, \p{M}: Mark
-        (?<upper> [\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}] )
-        (?<lower> [\p{Ll}\p{Lm}\p{Lo}\p{M}] )
-        
-        # Shared Affixes
-        (?<prefix> [^\r\n\p{L}\p{N}]? )
-        (?<suffix> (?i:'s|'t|'re|'ve|'m|'ll|'d)? )
-    )
-    # --- Matching Logic ---
-    (?&prefix)(?&upper)*(?&lower)+(?&suffix)|  # Mixed/Lowercase words (requires 1+ lower)
-    (?&prefix)(?&upper)+(?&lower)*(?&suffix)|  # Uppercase words (requires 1+ upper)
-    \p{N}{1,3}|                                # Numbers
-    \ ?[^\s\p{L}\p{N}]+[\r\n/]*|               # Punctuation (Specifically consumes slashes)
-    \s*[\r\n]+|                                # Newlines
-    \s+(?!\S)|                                 # Trailing whitespace
-    \s+                                        # Other whitespace
+    # 1. Mixed/Lowercase words: prefix + upper* + lower+ + suffix
+    # \p{Lu}: Uppercase, \p{Lt}: Titlecase, \p{Lm}: Modifier, \p{Lo}: Other, \p{M}: Mark
+    # \p{Ll}: Lowercase
+    [^\r\n\p{L}\p{N}]?                                      # Prefix
+    [\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*                        # Upper*
+    [\p{Ll}\p{Lm}\p{Lo}\p{M}]+                              # Lower+
+    (?i:'s|'t|'re|'ve|'m|'ll|'d)?|                          # Suffix
+
+    # 2. Uppercase words: prefix + upper+ + lower* + suffix
+    [^\r\n\p{L}\p{N}]?                                      # Prefix
+    [\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+                        # Upper+
+    [\p{Ll}\p{Lm}\p{Lo}\p{M}]*                              # Lower*
+    (?i:'s|'t|'re|'ve|'m|'ll|'d)?|                          # Suffix
+
+    # 3. Numbers
+    \p{N}{1,3}|
+
+    # 4. Punctuation
+    \ ?[^\s\p{L}\p{N}]+[\r\n/]*|
+
+    # 5. Newlines
+    \s*[\r\n]+|
+
+    # 6. Whitespace
+    \s+(?!\S)|
+    \s+
 """, regex.VERBOSE)
 
 
@@ -96,18 +107,18 @@ class Tokenizer:
         """
         if self.nfc:
             text = unicodedata.normalize("NFC", text)
-            
-        tokens = []
-        # OpenAI tokenization logic:
-        # 1. Split text into semantic chunks using the specific regex.
-        # 2. Apply BPE to each chunk independently.
-        # 3. This prevents merging across boundaries (e.g., across newlines or punctuation).
-        for chunk in self.pattern.findall(text):
-            # BPE operates on bytes, not Unicode characters
-            chunk_bytes = chunk.encode('utf-8')
-            tokens.extend(self.bpe.encode(chunk_bytes))
-            
-        return tokens
+
+        # Optimization: Local variable for speed
+        encode_func = self.bpe.encode_chunk_str
+
+        # Optimization: List Comprehension + Chain
+        # 1. findall returns a list of strings.
+        # 2. [encode_func(s) ...] creates a list of references to cached integer lists.
+        # 3. chain.from_iterable flattens this list-of-lists into a single iterator.
+        # 4. list(...) consumes it at C-speed.
+        return list(chain.from_iterable(
+            [encode_func(chunk) for chunk in self.pattern.findall(text)]
+        ))
 
     def count_tokens(self, text: str) -> int:
         """
@@ -124,11 +135,9 @@ class Tokenizer:
         """
         if self.nfc:
             text = unicodedata.normalize("NFC", text)
-            
-        return sum(
-            len(self.bpe.encode(chunk.encode('utf-8'))) 
-            for chunk in self.pattern.findall(text)
-        )
+        encode_func = self.bpe.encode_chunk_str
+        # Generator expression is memory efficient here
+        return sum(len(encode_func(chunk)) for chunk in self.pattern.findall(text))
 
     def decode(self, tokens: List[int]) -> str:
         """
@@ -157,11 +166,7 @@ def get_cl100k_base(path: Union[str, Path]) -> Tokenizer:
     Returns:
         A configured Tokenizer instance.
     """
-    return Tokenizer(
-        BytePairEncoding.from_tiktoken_file(path), 
-        CL100K_PATTERN, 
-        nfc_normalize=False
-    )
+    return Tokenizer(BytePairEncoding.from_tiktoken_file(path), CL100K_PATTERN)
 
 
 def get_o200k_base(path: Union[str, Path]) -> Tokenizer:
@@ -174,8 +179,4 @@ def get_o200k_base(path: Union[str, Path]) -> Tokenizer:
     Returns:
         A configured Tokenizer instance.
     """
-    return Tokenizer(
-        BytePairEncoding.from_tiktoken_file(path), 
-        O200K_PATTERN, 
-        nfc_normalize=False
-    )
+    return Tokenizer(BytePairEncoding.from_tiktoken_file(path), O200K_PATTERN)
