@@ -14,7 +14,7 @@ from typing import List, Union, Pattern
 
 import regex
 
-from byte_pair_encoding_aho_corasick import BytePairEncoding
+from byte_pair_encoding_caching import BytePairEncoding
 
 # --- Pre-compiled Regex Patterns ---
 

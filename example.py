@@ -15,16 +15,16 @@ if __name__ == '__main__':
     print(f"Loaded in {time.time() - start_time:.2f} seconds.")
 
     # 2. Encode Text
-    text = "Hello, world! This is a test of the 100% Python BPE port."
-    print(f"\nInput: '{text}'")
+    text = "Hello, world! This is a test of the 100% Python BPE port." * 100000
+    # print(f"\nInput: '{text}'")
 
     ids = enc1.encode(text)
-    print(f"Token IDs: {ids}")
+    # print(f"Token IDs: {ids}")
     print(f"Count: {len(ids)}")
 
     # 3. Decode Tokens
     decoded_text = enc1.decode(ids)
-    print(f"Decoded: '{decoded_text}'")
+    # print(f"Decoded: '{decoded_text}'")
 
     # 4. Prove correctness (Compare specific edge cases)
     # The word " world" (with space) usually maps to a single token in cl100k
@@ -36,6 +36,8 @@ if __name__ == '__main__':
     unicode_text = "I ❤️ 🐍"
     print(f"\nUnicode: {unicode_text}")
     print(f"IDs: {enc1.encode(unicode_text)}")
+    print(f"Finished in {time.time() - start_time:.2f} seconds.")
+
 
 if __name__ == '__main__':
     print("Loading o200k tokenizer (this takes roughly 4.5 seconds)...")
@@ -45,16 +47,16 @@ if __name__ == '__main__':
     print(f"Loaded in {time.time() - start_time:.2f} seconds.")
 
     # 2. Encode Text
-    text = "Hello, world! This is a test of the 100% Python BPE port."
-    print(f"\nInput: '{text}'")
+    text = "Hello, world! This is a test of the 100% Python BPE port."*100000
+    # print(f"\nInput: '{text}'")
 
     ids = enc2.encode(text)
-    print(f"Token IDs: {ids}")
+    # print(f"Token IDs: {ids}")
     print(f"Count: {len(ids)}")
 
     # 3. Decode Tokens
     decoded_text = enc2.decode(ids)
-    print(f"Decoded: '{decoded_text}'")
+    # print(f"Decoded: '{decoded_text}'")
 
     # 4. Prove correctness (Compare specific edge cases)
     # The word " world" (with space) usually maps to a single token in cl100k
@@ -66,3 +68,4 @@ if __name__ == '__main__':
     unicode_text = "I ❤️ 🐍"
     print(f"\nUnicode: {unicode_text}")
     print(f"IDs: {enc2.encode(unicode_text)}")
+    print(f"Finished in {time.time() - start_time:.2f} seconds.")
