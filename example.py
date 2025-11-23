@@ -8,7 +8,7 @@ from tokenizer import get_o200k_base
 # This takes ~15 seconds on a modern CPU due to pure Python overhead.
 
 if __name__ == '__main__':
-    print("Loading cl100k tokenizer (this takes roughly 1.5 seconds)...")
+    print("Loading cl100k tokenizer (this takes roughly 2 seconds)...")
     start_time = time.time()
     enc1 = get_cl100k_base("cl100k_base.tiktoken")
 
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     print(f"Count: {len(ids)}")
 
     # 3. Decode Tokens
-    decoded_text = enc1.decode(ids)
+    # decoded_text = enc1.decode(ids)
     # print(f"Decoded: '{decoded_text}'")
 
     # 4. Prove correctness (Compare specific edge cases)
@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
 
 if __name__ == '__main__':
-    print("Loading o200k tokenizer (this takes roughly 4.5 seconds)...")
+    print("Loading o200k tokenizer (this takes roughly 5 seconds)...")
     start_time = time.time()
     enc2 = get_o200k_base("o200k_base.tiktoken")
 
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     print(f"Count: {len(ids)}")
 
     # 3. Decode Tokens
-    decoded_text = enc2.decode(ids)
+    # decoded_text = enc2.decode(ids)
     # print(f"Decoded: '{decoded_text}'")
 
     # 4. Prove correctness (Compare specific edge cases)

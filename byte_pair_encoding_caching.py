@@ -142,6 +142,7 @@ class BytePairEncoding:
     def decode_tokens(self, tokens: List[int]) -> bytes:
         return b"".join(self.all_tokens[t] for t in tokens)
 
+    @lru_cache(maxsize=2**16)
     def encode(self, text: bytes) -> List[int]:
         if not text: return []
         n = len(text)
