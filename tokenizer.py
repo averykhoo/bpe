@@ -14,7 +14,7 @@ from typing import List, Union, Pattern
 
 import regex
 
-from byte_pair_encoding import BytePairEncoding
+from bpe_ac import BytePairEncoding
 
 # --- Pre-compiled Regex Patterns ---
 

@@ -3,6 +3,9 @@ Core Byte Pair Encoding (BPE) implementation using Aho-Corasick.
 
 This is an optimized Python port of the "Novel Algorithm" described in the `bpe` Rust crate.
 
+Note that ths takes about 2-3x longer to start up than the trie-based implementation.
+But it caches locally to disk so that should help
+
 Why Aho-Corasick?
 -----------------
 Standard BPE implementations often use a simple Trie or hash lookups to find matching tokens.
