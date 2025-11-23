@@ -12,8 +12,8 @@ and [here](https://github.com/github/rust-gems/tree/main/crates/bpe-openai) (ope
 
 ## 🔗 Original Source
 
-This code is based entirely on the logic from the **`bpe`** and **`bpe-openai`** crates found here:
-👉 **[https://github.com/github/rust-gems](https://github.com/github/rust-gems)**
+This code is based entirely on the logic from the **`bpe`** and **`bpe-openai`** crates found 
+[here](https://github.com/github/rust-gems).
 
 While the original Rust implementation is optimized for production use, this Python port is designed for:
 
@@ -23,7 +23,7 @@ While the original Rust implementation is optimized for production use, this Pyt
 
 ## 📂 Files
 
-* **`bpe.py`**: The core BPE logic. Implements the Trie structure,
+* **`byte_pair_encoding.py`**: The core BPE logic. Implements the Trie structure,
   the valid merge check (Dynamic Programming), and the `.tiktoken` file loader.
 * **`tokenizer.py`**: The wrapper that handles OpenAI's specific Regex splitting patterns
   (`cl100k_base`, `o200k_base`) and normalization.
