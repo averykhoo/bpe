@@ -7,12 +7,12 @@ It gives full credit to the original Rust architecture while explaining how to u
 
 A pure Python port of the high-performance Byte Pair Encoding (BPE) algorithm detailed in
 [this blog post](https://github.blog/ai-and-ml/llms/so-many-tokens-so-little-time-introducing-a-faster-more-flexible-byte-pair-tokenizer/).
-The original source code can be found [here](https://github.com/github/rust-gems/tree/main/crates/bpe) (bpe algorithm) 
+The original source code can be found [here](https://github.com/github/rust-gems/tree/main/crates/bpe) (bpe algorithm)
 and [here](https://github.com/github/rust-gems/tree/main/crates/bpe-openai) (openai tokenizer)
 
 ## 🔗 Original Source
 
-This code is based entirely on the logic from the **`bpe`** and **`bpe-openai`** crates found 
+This code is based entirely on the logic from the **`bpe`** and **`bpe-openai`** crates found
 [here](https://github.com/github/rust-gems).
 
 While the original Rust implementation is optimized for production use, this Python port is designed for:

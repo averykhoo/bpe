@@ -38,7 +38,6 @@ if __name__ == '__main__':
     print(f"IDs: {enc1.encode(unicode_text)}")
     print(f"Finished in {time.time() - start_time:.2f} seconds.")
 
-
 if __name__ == '__main__':
     print("Loading o200k tokenizer (this takes roughly 5 seconds)...")
     start_time = time.time()
@@ -47,7 +46,7 @@ if __name__ == '__main__':
     print(f"Loaded in {time.time() - start_time:.2f} seconds.")
 
     # 2. Encode Text
-    text = "Hello, world! This is a test of the 100% Python BPE port."*100000
+    text = "Hello, world! This is a test of the 100% Python BPE port." * 100000
     # print(f"\nInput: '{text}'")
 
     ids = enc2.encode(text)

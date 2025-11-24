@@ -10,10 +10,13 @@ OPTIMIZATIONS:
 3. Fast-Fail logic: Optimized inner loops to minimize interpreter instruction count.
 """
 import base64
-import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from functools import lru_cache
-from typing import Dict, List, Optional
+from typing import Dict
+from typing import List
+from typing import Optional
+
 
 # Python 3.10+ slots optimization
 @dataclass(slots=True)
@@ -147,7 +150,7 @@ class BytePairEncoding:
     def decode_tokens(self, tokens: List[int]) -> bytes:
         return b"".join(self.all_tokens[t] for t in tokens)
 
-    @lru_cache(maxsize=2**16)
+    @lru_cache(maxsize=2 ** 16)
     def encode(self, text: bytes) -> List[int]:
         if not text: return []
         n = len(text)
@@ -172,7 +175,7 @@ class BytePairEncoding:
             node = root
             # Scan forward from i
             for j in range(i, n):
-                byte = text[j] # Fast integer access on bytes object
+                byte = text[j]  # Fast integer access on bytes object
 
                 # Fast Fail: standard dictionary lookup
                 if byte not in node.children:
@@ -209,4 +212,4 @@ class BytePairEncoding:
     # This removes the need to call .encode('utf-8') repeatedly for the same word.
     @lru_cache(maxsize=2 ** 16)
     def encode_chunk_str(self, text: str) -> List[int]:
-        return self.encode(text.encode("utf-8"))
+        return self.encode(text.encode("utf-8", errors="replace"))
